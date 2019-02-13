@@ -1,18 +1,15 @@
 package com.egzosn.pay.paypal.api;
 
-/**
- * Created by egzosn on 2018/4/8.
- */
 
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import com.egzosn.pay.common.api.BasePayService;
-import com.egzosn.pay.common.api.PayConfigStorage;
 import com.egzosn.pay.common.bean.*;
 import com.egzosn.pay.common.bean.result.PayException;
 import com.egzosn.pay.common.exception.PayErrorException;
 import com.egzosn.pay.common.http.HttpHeader;
 import com.egzosn.pay.common.http.HttpStringEntity;
+import com.egzosn.pay.common.util.Util;
 import com.egzosn.pay.common.util.str.StringUtils;
 import com.egzosn.pay.paypal.bean.PayPalTransactionType;
 import com.egzosn.pay.paypal.bean.order.*;
@@ -32,7 +29,7 @@ import java.util.concurrent.locks.Lock;
  * email egzosn@gmail.com
  * date 2018-4-8 ‏‎22:15:09
  */
-public class PayPalPayService extends BasePayService{
+public class PayPalPayService extends BasePayService<PayPalConfigStorage>{
 
     /**
      * 沙箱环境
@@ -52,7 +49,7 @@ public class PayPalPayService extends BasePayService{
     }
 
 
-    public PayPalPayService(PayConfigStorage payConfigStorage) {
+    public PayPalPayService(PayPalConfigStorage payConfigStorage) {
         super(payConfigStorage);
     }
 
@@ -114,7 +111,7 @@ public class PayPalPayService extends BasePayService{
 
         HttpStringEntity httpEntity = new HttpStringEntity("{\"payer_id\":\""+(String)params.get("PayerID")+"\"}", ContentType.APPLICATION_JSON);
         httpEntity.setHeaders(authHeader());
-        JSONObject resp = getHttpRequestTemplate().postForObject(String.format(getReqUrl(PayPalTransactionType.EXECUTE), (String) params.get("paymentId")), httpEntity, JSONObject.class);
+        JSONObject resp = getHttpRequestTemplate().postForObject(getReqUrl(PayPalTransactionType.EXECUTE), httpEntity, JSONObject.class, (String) params.get("paymentId"));
         return  "approved".equals(resp.getString("state"));
 
     }
@@ -155,7 +152,7 @@ public class PayPalPayService extends BasePayService{
             order.setCurType(CurType.USD);
         }
         amount.setCurrency(order.getCurType().name());
-        amount.setTotal(order.getPrice().setScale(2, BigDecimal.ROUND_HALF_UP).toString());
+        amount.setTotal(Util.conversionAmount(order.getPrice()).toString());
 
         Transaction transaction = new Transaction();
         if (!StringUtils.isEmpty(order.getSubject())){
@@ -228,7 +225,7 @@ public class PayPalPayService extends BasePayService{
      */
     @Override
     public Map<String, Object> query(String tradeNo, String outTradeNo) {
-        JSONObject resp = getHttpRequestTemplate().getForObject(String.format(getReqUrl(PayPalTransactionType.ORDERS), tradeNo), authHeader(), JSONObject.class);
+        JSONObject resp = getHttpRequestTemplate().getForObject(getReqUrl(PayPalTransactionType.ORDERS), authHeader(), JSONObject.class, tradeNo);
         return resp;
     }
 
@@ -245,6 +242,7 @@ public class PayPalPayService extends BasePayService{
      * @param totalAmount 总金额
      * @return 返回支付方申请退款后的结果
      * @see #refund(RefundOrder)
+     * @deprecated {@link #refund(RefundOrder)}
      */
     @Deprecated
     @Override
@@ -266,17 +264,15 @@ public class PayPalPayService extends BasePayService{
         if (null != refundOrder.getRefundAmount() && BigDecimal.ZERO.compareTo( refundOrder.getRefundAmount()) > 0){
             Amount amount = new Amount();
             amount.setCurrency(refundOrder.getCurType().name());
-            amount.setTotal(refundOrder.getRefundAmount().toString());
+            amount.setTotal(Util.conversionAmount(refundOrder.getRefundAmount()).toString());
             request.put("amount", amount);
             request.put("description", refundOrder.getDescription());
         }
 
         HttpStringEntity httpEntity = new HttpStringEntity(request, ContentType.APPLICATION_JSON);
         httpEntity.setHeaders(authHeader());
-        JSONObject resp = getHttpRequestTemplate().postForObject(String.format(getReqUrl(PayPalTransactionType.REFUND), refundOrder.getTradeNo()), httpEntity, JSONObject.class);
+        JSONObject resp = getHttpRequestTemplate().postForObject(getReqUrl(PayPalTransactionType.REFUND),  httpEntity, JSONObject.class, refundOrder.getTradeNo());
         return resp;
-//
-//        return null;
     }
     /**
      * 查询退款
@@ -287,7 +283,7 @@ public class PayPalPayService extends BasePayService{
      */
     @Override
     public Map<String, Object> refundquery(String tradeNo, String outTradeNo) {
-        JSONObject resp = getHttpRequestTemplate().getForObject(String.format(getReqUrl(PayPalTransactionType.REFUND_QUERY), tradeNo), authHeader(), JSONObject.class);
+        JSONObject resp = getHttpRequestTemplate().getForObject(getReqUrl(PayPalTransactionType.REFUND_QUERY), authHeader(), JSONObject.class, tradeNo);
         return resp;
     }
 

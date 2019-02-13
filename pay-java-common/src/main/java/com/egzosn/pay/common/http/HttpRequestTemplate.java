@@ -25,7 +25,8 @@ import org.apache.http.ssl.SSLContexts;
 
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
-import java.io.*;
+import java.io.IOException;
+import java.io.InputStream;
 import java.net.URI;
 import java.security.GeneralSecurityException;
 import java.security.KeyStore;
@@ -42,7 +43,7 @@ import java.util.Map;
  */
 public class HttpRequestTemplate {
 
-    protected final Log log = LogFactory.getLog(HttpRequestTemplate.class);
+    protected final Log LOG = LogFactory.getLog(HttpRequestTemplate.class);
 
     protected CloseableHttpClient httpClient;
 
@@ -103,16 +104,16 @@ public class HttpRequestTemplate {
      */
     public SSLConnectionSocketFactory createSSL( HttpConfigStorage configStorage){
 
-        if (StringUtils.isEmpty(configStorage.getKeystore())){
+        if (null == configStorage.getKeystore()){
             try {
                 return new SSLConnectionSocketFactory(SSLContext.getDefault());
             } catch (NoSuchAlgorithmException e) {
-                e.printStackTrace();
+                LOG.error(e);
             }
         }
 
             //读取本机存放的PKCS12证书文件
-        try(InputStream instream = configStorage.isPath() ? new FileInputStream(new File(configStorage.getKeystore())) : new ByteArrayInputStream(configStorage.getKeystore().getBytes())){
+        try(InputStream instream = configStorage.getKeystoreInputStream()){
                 //指定读取证书格式为PKCS12
                 KeyStore keyStore = KeyStore.getInstance("PKCS12");
 
@@ -133,9 +134,9 @@ public class HttpRequestTemplate {
 
                 return sslsf;
         } catch (IOException e) {
-            e.printStackTrace();
+            LOG.error(e);
         } catch (GeneralSecurityException e) {
-            e.printStackTrace();
+            LOG.error(e);
         }
         return null;
 
@@ -175,7 +176,9 @@ public class HttpRequestTemplate {
         if (0 == configStorage.getMaxTotal() || 0 == configStorage.getDefaultMaxPerRoute()){
             return null;
         }
-        log.info(String.format("Initialize the PoolingHttpClientConnectionManager -- maxTotal:%s, defaultMaxPerRoute:%s", configStorage.getMaxTotal(), configStorage.getDefaultMaxPerRoute()));
+        if (LOG.isInfoEnabled()) {
+            LOG.info(String.format("Initialize the PoolingHttpClientConnectionManager -- maxTotal:%s, defaultMaxPerRoute:%s", configStorage.getMaxTotal(), configStorage.getDefaultMaxPerRoute()));
+        }
         Registry<ConnectionSocketFactory> socketFactoryRegistry = RegistryBuilder.<ConnectionSocketFactory> create()
                 .register("https", createSSL(configStorage))
                 .register("http", new PlainConnectionSocketFactory())
@@ -198,7 +201,7 @@ public class HttpRequestTemplate {
 
         if (null != configStorage && StringUtils.isNotBlank(configStorage.getHttpProxyHost())) {
             //http代理地址设置
-            httpProxy = new HttpHost(configStorage.getHttpProxyHost(),configStorage.httpProxyPort);;
+            httpProxy = new HttpHost(configStorage.getHttpProxyHost(),configStorage.getHttpProxyPort());;
         }
 
         return this;
@@ -285,7 +288,7 @@ public class HttpRequestTemplate {
      *    getForObject(&quot;http://egan.in/pay/{id}/f/{type}&quot;, String.class, &quot;1&quot;, &quot;APP&quot;)
      * </code>
      */
-    public <T> T getForObject(String uri, HttpHeader header,Class<T> responseType, Object... uriVariables){
+    public <T> T getForObject(String uri, HttpHeader header, Class<T> responseType, Object... uriVariables){
 
         return doExecute(URI.create(UriVariables.getUri(uri, uriVariables)), header, responseType, MethodType.GET);
     }
@@ -324,8 +327,10 @@ public class HttpRequestTemplate {
      * @return 类型对象
      */
     public <T>T doExecute(URI uri, Object request, Class<T> responseType, MethodType method){
-        log.debug(String.format("uri:%s, httpMethod:%s ", uri, method.name()));
-        ClientHttpRequest<T> httpRequest = new ClientHttpRequest(uri ,method, request);
+        if (LOG.isDebugEnabled()) {
+            LOG.debug(String.format("uri:%s, httpMethod:%s ", uri, method.name()));
+        }
+        ClientHttpRequest<T> httpRequest = new ClientHttpRequest(uri ,method, request, null == configStorage ? null : configStorage.getCharset());
         //判断是否有代理设置
         if (null == httpProxy){
             httpRequest.setProxy(httpProxy);

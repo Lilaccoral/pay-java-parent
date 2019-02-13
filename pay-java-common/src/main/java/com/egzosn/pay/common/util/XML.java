@@ -6,6 +6,7 @@ import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import com.egzosn.pay.common.bean.result.PayException;
 import com.egzosn.pay.common.exception.PayErrorException;
+import com.egzosn.pay.common.util.str.StringUtils;
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
@@ -14,13 +15,17 @@ import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
-import javax.xml.transform.*;
+import javax.xml.transform.OutputKeys;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerException;
+import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.StringWriter;
+import java.nio.charset.Charset;
 import java.util.Map;
 
 
@@ -65,10 +70,35 @@ public class XML {
      */
     public static JSONObject toJSONObject(String content) {
 
-        if (null == content || "".equals(content)) {
+        return toJSONObject(content, Charset.defaultCharset());
+
+
+    }
+    /**
+     * 解析xml并转化为Json值
+     *
+     * @param content json字符串
+     * @return Json值
+     */
+    public static JSONObject toJSONObject(String content, Charset charset) {
+
+        if (StringUtils.isEmpty(content)) {
             return null;
         }
-        try (InputStream in = new ByteArrayInputStream(content.getBytes("UTF-8"))) {
+        return toJSONObject(content.getBytes(charset));
+    }
+    /**
+     * 解析xml并转化为Json值
+     *
+     * @param content json字符串
+     * @return Json值
+     */
+    public static JSONObject toJSONObject(byte[] content) {
+
+        if (null == content) {
+            return null;
+        }
+        try (InputStream in = new ByteArrayInputStream(content)) {
             return (JSONObject) inputStream2Map(in, null);
         } catch (IOException e) {
             throw new PayErrorException(new PayException("IOException", e.getMessage()));
@@ -81,6 +111,7 @@ public class XML {
      *
      * @param content json字符串
      * @param clazz 需要转化的类
+     *              @param <T> 返回对应类型
      * @return Json值
      */
     public static <T> T toBean(String content, Class<T> clazz) {
@@ -174,7 +205,6 @@ public class XML {
             JSON json = getChildren(children);
             return json.toJavaObject(clazz);
         } catch (Exception e) {
-//            e.printStackTrace();
             throw new PayErrorException(new PayException("XML failure", "XML解析失败\n" + e.getMessage()));
         } finally {
             in.close();
@@ -230,17 +260,17 @@ public class XML {
         try {
             document = newDocument();
         } catch (ParserConfigurationException e) {
-            e.printStackTrace();
+            throw new PayErrorException(new PayException("ParserConfigurationException", e.getLocalizedMessage()));
         }
         org.w3c.dom.Element root = document.createElement("xml");
         document.appendChild(root);
-        for (String key : data.keySet()) {
-            Object value = data.get(key);
+        for (Map.Entry<String, Object> entry : data.entrySet()) {
+            Object value = entry.getValue();
             if (value == null) {
                 value = "";
             }
             value = value.toString().trim();
-            org.w3c.dom.Element filed = document.createElement(key);
+            org.w3c.dom.Element filed = document.createElement(entry.getKey());
             filed.appendChild(document.createTextNode(value.toString()));
             root.appendChild(filed);
         }
