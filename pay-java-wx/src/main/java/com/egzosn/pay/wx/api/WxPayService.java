@@ -438,14 +438,14 @@ public class WxPayService extends BasePayService {
         parameters.put("refund_fee", conversion(refundOrder.getRefundAmount()));
         parameters.put("op_user_id", payConfigStorage.getPid());
 
+        if(refundOrder.getRefundAccount() != null){
+            parameters.put("refund_account", refundOrder.getRefundAccount().getSource());
+        }
+
         //设置签名
         setSign(parameters);
         return requestTemplate.postForObject(getUrl(WxTransactionType.REFUND), XML.getMap2Xml(parameters), JSONObject.class);
     }
-
-
-
-
 
     /**
      * 查询退款

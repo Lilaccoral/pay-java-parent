@@ -47,6 +47,19 @@ public class RefundOrder {
      */
     private String description;
 
+    /**
+     * 退款资金来源
+     */
+    private RefundAccount refundAccount;
+
+    public RefundAccount getRefundAccount() {
+        return refundAccount;
+    }
+
+    public void setRefundAccount(RefundAccount refundAccount) {
+        this.refundAccount = refundAccount;
+    }
+
     public String getRefundNo() {
         return refundNo;
     }
