@@ -2,17 +2,21 @@ package com.egzosn.pay.common.bean;
 
 import java.math.BigDecimal;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
+
+import com.egzosn.pay.common.util.str.StringUtils;
 
 /**
  * 支付订单信息
  *
  * @author egan
- *  <pre>
+ * <pre>
  *      email egzosn@gmail.com
  *      date 2016/10/19 22:34
  *  </pre>
  */
-public class PayOrder {
+public class PayOrder implements Order {
     /**
      * 商品名称
      */
@@ -30,6 +34,10 @@ public class PayOrder {
      */
     private BigDecimal price;
     /**
+     * 支付平台订单号,交易号
+     */
+    private String tradeNo;
+    /**
      * 商户订单号
      */
     private String outTradeNo;
@@ -46,7 +54,7 @@ public class PayOrder {
      */
     private String spbillCreateIp;
     /**
-     * 付款条码串  与设备号类似？？？
+     * 付款条码串,人脸凭证，有关支付代码相关的，
      */
     private String authCode;
     /**
@@ -62,7 +70,7 @@ public class PayOrder {
     private String wapName;
     /**
      * 用户唯一标识
-     *  微信含 sub_openid 字段
+     * 微信含 sub_openid 字段
      */
     private String openid;
     /**
@@ -78,7 +86,27 @@ public class PayOrder {
      */
     private Date expirationTime;
 
+    /**
+     * 订单附加信息，可用于预设未提供的参数，这里会覆盖以上所有的订单信息，
+     */
+    private Map<String, Object> attr;
 
+
+    public PayOrder() {
+    }
+
+
+    public PayOrder(String subject, String body, BigDecimal price, String outTradeNo) {
+        this(subject, body, price, outTradeNo, null);
+    }
+
+    public PayOrder(String subject, String body, BigDecimal price, String outTradeNo, TransactionType transactionType) {
+        this.subject = StringUtils.tryTrim(subject);
+        this.body = StringUtils.tryTrim(body);
+        this.price = price;
+        this.outTradeNo = StringUtils.tryTrim(outTradeNo);
+        this.transactionType = transactionType;
+    }
 
 
     public CurType getCurType() {
@@ -122,28 +150,26 @@ public class PayOrder {
     }
 
     /**
-     * 获取商户订单号
-     * @return 商户订单号
-     * @see  #getOutTradeNo()
-     */
-    @Deprecated
-    public String getTradeNo() {
-        return outTradeNo;
-    }
-
-
-    /**
+     * 支付平台订单号,交易号
      *
-     * @param tradeNo 商户订单号
-     * @see  #setOutTradeNo(String)
+     * @return 支付平台订单号, 交易号
      */
-    @Deprecated
-    public void setTradeNo(String tradeNo) {
-        this.outTradeNo = tradeNo;
+    public String getTradeNo() {
+        return tradeNo;
     }
 
     /**
-     *  获取商户订单号
+     * 支付平台订单号,交易号
+     *
+     * @param tradeNo 支付平台订单号,交易号
+     */
+    public void setTradeNo(String tradeNo) {
+        this.tradeNo = tradeNo;
+    }
+
+    /**
+     * 获取商户订单号
+     *
      * @return 商户订单号
      */
     public String getOutTradeNo() {
@@ -152,7 +178,8 @@ public class PayOrder {
 
     /**
      * 设置商户订单号
-     * @param outTradeNo  商户订单号
+     *
+     * @param outTradeNo 商户订单号
      */
     public void setOutTradeNo(String outTradeNo) {
         this.outTradeNo = outTradeNo;
@@ -198,24 +225,6 @@ public class PayOrder {
         this.deviceInfo = deviceInfo;
     }
 
-    public PayOrder() {
-    }
-
-
-    public PayOrder(String subject, String body, BigDecimal price, String outTradeNo, TransactionType transactionType) {
-        this.subject = subject;
-        this.body = body;
-        this.price = price;
-        this.outTradeNo = outTradeNo;
-        this.transactionType = transactionType;
-    }
-    public PayOrder(String subject, String body, BigDecimal price, String outTradeNo) {
-        this.subject = subject;
-        this.body = body;
-        this.price = price;
-        this.outTradeNo = outTradeNo;
-    }
-
     public String getWapUrl() {
         return wapUrl;
     }
@@ -247,6 +256,25 @@ public class PayOrder {
     public void setExpirationTime(Date expirationTime) {
         this.expirationTime = expirationTime;
     }
+
+    @Override
+    public Map<String, Object> getAttr() {
+        if (null == attr){
+            attr = new HashMap<>();
+        }
+        return attr;
+    }
+
+    /**
+     * 添加订单信息
+     * @param key key
+     * @param value 值
+     */
+    public void addAttr(String key, Object value) {
+         getAttr().put(key, value);
+    }
+
+
 
     @Override
     public String toString() {

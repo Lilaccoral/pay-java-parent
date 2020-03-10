@@ -44,6 +44,7 @@ public class PayPalPayService extends BasePayService<PayPalConfigStorage>{
      * 获取对应的请求地址
      * @return 请求地址
      */
+    @Override
     public String getReqUrl(TransactionType transactionType){
         return (payConfigStorage.isTest() ? SANDBOX_REQ_URL : REQ_URL) + transactionType.getMethod();
     }
@@ -83,7 +84,6 @@ public class PayPalPayService extends BasePayService<PayPalConfigStorage>{
             }
 
             if (payConfigStorage.isAccessTokenExpired()) {
-                if (null == payConfigStorage.getAccessToken()){
                     Map<String, String> header = new HashMap<>();
                     header.put("Authorization", "Basic " + authorizationString(getPayConfigStorage().getAppid(), getPayConfigStorage().getKeyPrivate()));
                     header.put("Accept", "application/json");
@@ -91,12 +91,11 @@ public class PayPalPayService extends BasePayService<PayPalConfigStorage>{
                     try {
                         HttpStringEntity entity = new HttpStringEntity("grant_type=client_credentials", header);
                         JSONObject resp = getHttpRequestTemplate().postForObject(getReqUrl(PayPalTransactionType.AUTHORIZE), entity, JSONObject.class);
-                        payConfigStorage.updateAccessToken(String.format("%s %s", resp.getString("token_type" ), resp.getString("access_token" )), resp.getLongValue("expires_in" ));
+                        payConfigStorage.updateAccessToken(String.format("%s %s", resp.getString("token_type" ), resp.getString("access_token" )),  resp.getIntValue("expires_in" ));
 
                     } catch (UnsupportedEncodingException e) {
                         throw new PayErrorException(new PayException("failure", e.getMessage()));
                     }
-                }
                 return payConfigStorage.getAccessToken();
             }
         } finally {
@@ -147,11 +146,15 @@ public class PayPalPayService extends BasePayService<PayPalConfigStorage>{
      */
     @Override
     public Map<String, Object> orderInfo(PayOrder order) {
+        if (null == order.getTransactionType()){
+            order.setTransactionType(PayPalTransactionType.sale);
+        }
+
         Amount amount = new Amount();
         if (null == order.getCurType()){
-            order.setCurType(CurType.USD);
+            order.setCurType(DefaultCurType.USD);
         }
-        amount.setCurrency(order.getCurType().name());
+        amount.setCurrency(order.getCurType().getType());
         amount.setTotal(Util.conversionAmount(order.getPrice()).toString());
 
         Transaction transaction = new Transaction();
@@ -184,7 +187,7 @@ public class PayPalPayService extends BasePayService<PayPalConfigStorage>{
         if ("created".equals(resp.getString("state")) && StringUtils.isNotEmpty(resp.getString("id"))){
             order.setOutTradeNo(resp.getString("id"));
         }
-        return resp;
+        return preOrderHandler(resp, order);
     }
 
     @Override
@@ -211,7 +214,7 @@ public class PayPalPayService extends BasePayService<PayPalConfigStorage>{
     }
 
     @Override
-    public BufferedImage genQrPay(PayOrder order) {
+    public String getQrPay(PayOrder order) {
         return null;
     }
 
@@ -266,7 +269,11 @@ public class PayPalPayService extends BasePayService<PayPalConfigStorage>{
 
         if (null != refundOrder.getRefundAmount() && BigDecimal.ZERO.compareTo( refundOrder.getRefundAmount()) == -1){
             Amount amount = new Amount();
-            amount.setCurrency(refundOrder.getCurType().name());
+            if(null == refundOrder.getCurType()){
+                refundOrder.setCurType(DefaultCurType.USD);
+            }
+
+            amount.setCurrency(refundOrder.getCurType().getType());
             amount.setTotal(Util.conversionAmount(refundOrder.getRefundAmount()).toString());
             request.put("amount", amount);
             request.put("description", refundOrder.getDescription());

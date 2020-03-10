@@ -9,6 +9,8 @@ import com.egzosn.pay.common.util.DateUtils;
 import com.egzosn.pay.common.util.Util;
 import com.egzosn.pay.common.util.sign.SignUtils;
 import com.egzosn.pay.common.util.str.StringUtils;
+import com.egzosn.pay.fuiou.bean.FuiouTransactionType;
+
 import java.awt.image.BufferedImage;
 import java.io.InputStream;
 import java.math.BigDecimal;
@@ -26,11 +28,11 @@ public class FuiouPayService extends BasePayService<FuiouPayConfigStorage> {
     /**
      * 正式域名
      */
-    public static final String URL_FuiouBaseDomain = "https://pay.fuiou.com/";
+    public static final String URL_FUIOU_BASE_DOMAIN = "https://pay.fuiou.com/";
     /**
      * 测试域名
      */
-    public static final String DEV_URL_FUIOUBASEDOMAIN = "http://www-1.fuiou.com:8888/wg1_run/";
+    public static final String DEV_URL_FUIOU_BASE_DOMAIN = "http://www-1.fuiou.com:8888/wg1_run/";
 
     /**
      * B2C/B2B支付
@@ -62,8 +64,16 @@ public class FuiouPayService extends BasePayService<FuiouPayConfigStorage> {
      * 获取对应的请求地址
      * @return 请求地址
      */
+    @Override
+    public String getReqUrl(TransactionType transactionType){
+        return payConfigStorage.isTest() ? DEV_URL_FUIOU_BASE_DOMAIN : URL_FUIOU_BASE_DOMAIN;
+    }
+    /**
+     * 获取对应的请求地址
+     * @return 请求地址
+     */
     public String getReqUrl(){
-        return payConfigStorage.isTest() ? DEV_URL_FUIOUBASEDOMAIN : URL_FuiouBaseDomain;
+        return getReqUrl(null);
     }
 
     /**
@@ -121,14 +131,14 @@ public class FuiouPayService extends BasePayService<FuiouPayConfigStorage> {
     /**
      * 校验回调数据来源是否合法
      *
-     * @param order_id 业务id, 数据的真实性.
+     * @param orderId 业务id, 数据的真实性.
      * @return 返回校验结果
      */
     @Override
-    public boolean verifySource(String order_id) {
-        LinkedHashMap<String, Object> params = new LinkedHashMap<>();
+    public boolean verifySource(String orderId) {
+        LinkedHashMap<String, Object> params = new LinkedHashMap<String, Object>(3);
         params.put("mchnt_cd", payConfigStorage.getPid());
-        params.put("order_id", order_id);
+        params.put("order_id", orderId);
         params.put("md5", createSign(SignUtils.parameters2MD5Str(params, "|"), payConfigStorage.getInputCharset()));
         JSONObject resultJson = getHttpRequestTemplate().postForObject(getReqUrl() + URL_FuiouSmpAQueryGate + "?" + UriVariables.getMapToParameters(params), null, JSONObject.class);
         if (null == resultJson){
@@ -145,7 +155,11 @@ public class FuiouPayService extends BasePayService<FuiouPayConfigStorage> {
      */
     @Override
     public Map<String, Object> orderInfo(PayOrder order) {
-        LinkedHashMap<String, Object> parameters = getOrderInfo(order);
+        if (null == order.getTransactionType()){
+            order.setTransactionType(FuiouTransactionType.B2C);
+        }
+
+        Map<String, Object> parameters = getOrderInfo(order);
         String sign = createSign(SignUtils.parameters2MD5Str(parameters, "|"), payConfigStorage.getInputCharset());
         parameters.put("md5", sign);
         return parameters;
@@ -156,7 +170,8 @@ public class FuiouPayService extends BasePayService<FuiouPayConfigStorage> {
      * @param order 支付订单
      * @return 返回支付请求参数集合
      */
-    private LinkedHashMap<String, Object> getOrderInfo(PayOrder order) {
+    private Map<String, Object> getOrderInfo(PayOrder order) {
+
         LinkedHashMap<String, Object> parameters = new LinkedHashMap<String, Object>();
         //商户代码
         parameters.put("mchnt_cd", payConfigStorage.getPid());
@@ -188,7 +203,8 @@ public class FuiouPayService extends BasePayService<FuiouPayConfigStorage> {
         parameters.put("rem", "");
         //版本号
         parameters.put("ver", "1.0.1");
-        return parameters;
+        parameters.putAll(order.getAttr());
+        return preOrderHandler(parameters, order);
     }
 
     /**
@@ -281,7 +297,7 @@ public class FuiouPayService extends BasePayService<FuiouPayConfigStorage> {
      * @return 空
      */
     @Override
-    public BufferedImage genQrPay (PayOrder order) {
+    public String getQrPay (PayOrder order) {
         throw new UnsupportedOperationException();
     }
 

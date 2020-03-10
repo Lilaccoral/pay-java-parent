@@ -14,7 +14,7 @@ public enum PayType implements BasePayType {
 
     aliPay{
         /**
-         *  @see com.egzosn.pay.ali.api.AliPayService  17年更新的版本,旧版本请自行切换{@link com.egzosn.pay.ali.before.api.AliPayService }
+         *  @see com.egzosn.pay.ali.api.AliPayService 
          * @param apyAccount
          * @return
          */
@@ -22,8 +22,8 @@ public enum PayType implements BasePayType {
         public PayService getPayService(ApyAccount apyAccount) {
             AliPayConfigStorage aliPayConfigStorage = new AliPayConfigStorage();
             aliPayConfigStorage.setPid(apyAccount.getPartner());
-            aliPayConfigStorage.setAppId(apyAccount.getAppid());
-            aliPayConfigStorage.setAliPublicKey(apyAccount.getPublicKey());
+            aliPayConfigStorage.setAppid(apyAccount.getAppid());
+            aliPayConfigStorage.setKeyPublic(apyAccount.getPublicKey());
             aliPayConfigStorage.setKeyPrivate(apyAccount.getPrivateKey());
             aliPayConfigStorage.setNotifyUrl(apyAccount.getNotifyUrl());
             aliPayConfigStorage.setReturnUrl(apyAccount.getReturnUrl());
@@ -153,13 +153,13 @@ public class PayResponse {
         //代理端口
         httpConfigStorage.setHttpProxyPort(3308);
         //代理用户名
-        httpConfigStorage.setHttpProxyUsername("user");
+        httpConfigStorage.setAuthUsername("user");
         //代理密码
-        httpConfigStorage.setHttpProxyPassword("password");
+        httpConfigStorage.setAuthPassword("password");
 
         */
         //设置ssl证书路径
-        httpConfigStorage.setKeystorePath(apyAccount.getKeystorePath());
+        httpConfigStorage.setKeystore(apyAccount.getKeystorePath());
         //设置ssl证书对应的密码
         httpConfigStorage.setStorePassword(apyAccount.getStorePassword());
         return httpConfigStorage;
@@ -176,7 +176,6 @@ public class PayResponse {
         router = new PayMessageRouter(this.service);
         router
                 .rule()
-                .async(false)
                 .msgType(MsgType.text.name()) //消息类型
                 .payType(PayType.aliPay.name()) //支付账户事件类型
                 .transactionType(AliTransactionType.UNAWARE.name())//交易类型，有关回调的可在这处理
@@ -184,13 +183,11 @@ public class PayResponse {
                 .handler(autowire(new AliPayMessageHandler(payId))) //处理器
                 .end()
                 .rule()
-                .async(false)
                 .msgType(MsgType.xml.name())
                 .payType(PayType.wxPay.name())
                 .handler(autowire(new WxPayMessageHandler(payId)))
                 .end()
                 .rule()
-                .async(false)
                 .msgType(MsgType.json.name())
                 .payType(PayType.youdianPay.name())
                 .handler(autowire(new YouDianPayMessageHandler(payId)))

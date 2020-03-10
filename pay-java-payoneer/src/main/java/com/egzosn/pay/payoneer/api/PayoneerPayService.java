@@ -180,12 +180,12 @@ public class PayoneerPayService extends BasePayService<PayoneerConfigStorage> im
         params.put("amount", Util.conversionAmount(order.getPrice()));
         params.put("client_reference_id", order.getOutTradeNo());
         if (null == order.getCurType()) {
-            order.setCurType(CurType.USD);
+            order.setCurType(DefaultCurType.USD);
         }
         params.put("currency", order.getCurType());
         params.put("description", order.getSubject());
-
-        return params;
+        params.putAll(order.getAttr());
+        return preOrderHandler(params, order);
     }
 
     /**
@@ -250,7 +250,7 @@ public class PayoneerPayService extends BasePayService<PayoneerConfigStorage> im
      * @return 返回图片信息，支付时需要的
      */
     @Override
-    public BufferedImage genQrPay(PayOrder order) {
+    public String getQrPay(PayOrder order) {
         throw new UnsupportedOperationException();
     }
 
@@ -263,6 +263,8 @@ public class PayoneerPayService extends BasePayService<PayoneerConfigStorage> im
      */
     @Override
     public Map<String, Object> microPay(PayOrder order) {
+        order.setTransactionType(PayoneerTransactionType.CHARGE);
+
         HttpStringEntity entity = new HttpStringEntity(JSON.toJSONString(orderInfo(order)), ContentType.APPLICATION_JSON);
         //设置 base atuh
         entity.setHeaders(authHeader());
